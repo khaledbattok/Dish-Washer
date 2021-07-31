@@ -136,7 +136,7 @@ void convert_data(void);
 void init_config(void);
 void Calc_Temp(void);
 void init_main_test_list(int x0,int x1,int x2,int x3,int x4,int x5,int x6,int x7,int x8,int x9);
-uint8_t TakeTheWater(int FlowMeterPulsesRequired,int TimeOut,int TimerNum);
+uint8_t TakeTheWater(int FlowMeterPulsesRequired,int TimeOut,int TimerNum,int Error_Checking);
 uint8_t TakeTheDispenser(int TimeOut,int TimerNum);
 uint8_t DoTheWashing(int TimeOut,int TimerNum);
 uint8_t BringTheWaterTemperatureToTheSpecifiedValue(int TempSetPoint,int TimeOut,int TimerNum);
@@ -374,8 +374,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     for(int i=0;i<NumOfTimers;i++)
     {
-      if(counters[i].countrer_Enable)
+      if(counters[i].countrer_Enable==1)
         counters[i].counter_value++;
+      else if(counters[i].countrer_Enable==-1)
+        counters[i].countrer_Enable=0;
 
     }
 /*    if (counter_flag == 1)
@@ -619,7 +621,7 @@ uint8_t test_fcn(int n)
     switch (n)
     {
     case 9:
-      return TakeTheWater(100,120,1);
+      return TakeTheWater(100,60,1,1);
       break;
     case 8:
       return TakeTheDispenser(3,1);
@@ -634,7 +636,7 @@ uint8_t test_fcn(int n)
       return DrainTheWater(30,1);
       break;
     case 4:
-      return TakeTheWater(100,120,1);
+      return TakeTheWater(100,60,1,1);
       break;
     case 3:
       return DoTheWashing(10,1);
@@ -896,13 +898,43 @@ void main_program_1(void)
       level_work=2;
     }
   }
-  else if(level_work==2)
+else if(level_work==2)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=3;
+      case 1:
+        level_work=3;
+        break;
+      case 2:
+        level_work=-2;
+        break;
     }
   }
+    else if(level_work==-2)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-3;
+      }    
+    }
+    else if(level_work==-3)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-4;
+      }
+    }
+    else if(level_work==-4)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=3;
+          break;
+        case 2:
+          break;
+      }
+    }
   else if(level_work==3)
   {
     if(DoTheWashing(10,1))
@@ -933,13 +965,44 @@ void main_program_1(void)
       level_work=7;
     }
   }
-  else if(level_work==7)
+else if(level_work==7)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=8;
+      case 1:
+        level_work=8;
+        break;
+      case 2:
+        level_work=-7;
+        break;
     }
   }
+    else if(level_work==-7)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-8;
+      }    
+    }
+    else if(level_work==-8)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-9;
+      }
+    }
+    else if(level_work==-9)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=8;
+          break;
+        case 2:
+          break;
+      }
+}
+
   else if(level_work==8)
   {
     if(DoTheWashing(10,1))
@@ -976,14 +1039,45 @@ void main_program_1(void)
       level_work=12;
     }
   }
-  else if(level_work==12)
+else if(level_work==12)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=13;
-      WashingTime=7*60-(GetTimerValue(3)-(35+20+5+14)*60);
+      case 1:
+        level_work=13;
+        WashingTime=7*60-(GetTimerValue(3)-(35+20+5+14)*60);
+        break;
+      case 2:
+        level_work=-12;
+        break;
     }
   }
+    else if(level_work==-12)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-13;
+      }    
+    }
+    else if(level_work==-13)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-14;
+      }
+    }
+    else if(level_work==-14)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=13;
+          WashingTime=7*60-(GetTimerValue(3)-(35+20+5+14)*60);
+          break;
+        case 2:
+          break;
+      }
+}
   else if(level_work==13)
   {
     if(DoTheWashing(WashingTime,1))
@@ -998,14 +1092,45 @@ void main_program_1(void)
       level_work=15;
     }
   }
-  else if(level_work==15)
+else if(level_work==15)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=16;
-      WashingTime=7*60-(GetTimerValue(3)-(7+35+20+5+14)*60);
+      case 1:
+        level_work=16;
+        WashingTime=7*60-(GetTimerValue(3)-(7+35+20+5+14)*60);
+        break;
+      case 2:
+        level_work=-15;
+        break;
     }
   }
+    else if(level_work==-15)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-16;
+      }    
+    }
+    else if(level_work==-16)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-17;
+      }
+    }
+    else if(level_work==-17)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=16;
+          WashingTime=7*60-(GetTimerValue(3)-(7+35+20+5+14)*60);
+          break;
+        case 2:
+          break;
+      }
+}
   else if(level_work==16)
   {
     if(DoTheWashing(WashingTime,1))
@@ -1020,13 +1145,43 @@ void main_program_1(void)
       level_work=18;
     }
   }
-  else if(level_work==18)
+else if(level_work==18)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=19;
+      case 1:
+        level_work=19;
+        break;
+      case 2:
+        level_work=-18;
+        break;
     }
   }
+    else if(level_work==-18)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-19;
+      }    
+    }
+    else if(level_work==-19)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-20;
+      }
+    }
+    else if(level_work==-20)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=19;
+          break;
+        case 2:
+          break;
+      }
+}
   else if(level_work==19)
   {
     if(DoTheWashing(10,1))
@@ -1166,14 +1321,45 @@ void main_program_2(void)
       level_work=2;
     }
   }
-  else if(level_work==2)
+else if(level_work==2)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=3;
-      WashingTime=26*60-GetTimerValue(3);
+      case 1:
+        level_work=3;
+	WashingTime=26*60-GetTimerValue(3);
+        break;
+      case 2:
+        level_work=-2;
+        break;
     }
   }
+    else if(level_work==-2)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-3;
+      }    
+    }
+    else if(level_work==-3)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-4;
+      }
+    }
+    else if(level_work==-4)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=3;
+	  WashingTime=26*60-GetTimerValue(3);
+          break;
+        case 2:
+          break;
+      }
+    }
   else if(level_work==3)
   {
     if(DoTheWashing(WashingTime,1))
@@ -1188,13 +1374,43 @@ void main_program_2(void)
       level_work=5;
     }
   }
-  else if(level_work==5)
+else if(level_work==5)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=6;
+      case 1:
+        level_work=6;
+        break;
+      case 2:
+        level_work=-5;
+        break;
     }
   }
+    else if(level_work==-5)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-6;
+      }    
+    }
+    else if(level_work==-6)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-7;
+      }
+    }
+    else if(level_work==-7)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=6;
+          break;
+        case 2:
+          break;
+      }
+}
   else if(level_work==6)
   {
     if(DoTheWashing(10,1))
@@ -1231,13 +1447,45 @@ void main_program_2(void)
       level_work=10;
     }
   }
-  else if(level_work==10)
+
+
+else if(level_work==10)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=11;
+      case 1:
+        level_work=11;
+        break;
+      case 2:
+        level_work=-10;
+        break;
     }
   }
+    else if(level_work==-10)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-11;
+      }    
+    }
+    else if(level_work==-11)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-12;
+      }
+    }
+    else if(level_work==-12)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=11;
+          break;
+        case 2:
+          break;
+      }
+}
   else if(level_work==11)
   {
     if(DoTheWashing(10,1))
@@ -1372,12 +1620,43 @@ void main_program_3(void)
   }
   else if(level_work==2)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=3;
-      WashingTime=11*60-GetTimerValue(3);
+      case 1:
+        level_work=3;
+         WashingTime=11*60-GetTimerValue(3);
+        break;
+      case 2:
+        level_work=-2;
+        break;
     }
   }
+    else if(level_work==-2)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-3;
+      }    
+    }
+    else if(level_work==-3)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-4;
+      }
+    }
+    else if(level_work==-4)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=3;
+          WashingTime=11*60-GetTimerValue(3);
+          break;
+        case 2:
+          break;
+      }
+    }
   else if(level_work==3)
   {
     if(DoTheWashing(WashingTime,1))
@@ -1392,13 +1671,43 @@ void main_program_3(void)
       level_work=5;
     }
   }
-  else if(level_work==5)
+else if(level_work==5)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=6;
+      case 1:
+        level_work=6;
+        break;
+      case 2:
+        level_work=-5;
+        break;
     }
   }
+    else if(level_work==-5)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-6;
+      }    
+    }
+    else if(level_work==-6)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-7;
+      }
+    }
+    else if(level_work==-7)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=6;
+          break;
+        case 2:
+          break;
+      }
+    }
   else if(level_work==6)
   {
     if(DoTheWashing(10,1))
@@ -1435,14 +1744,45 @@ void main_program_3(void)
       level_work=10;
     }
   }
-  else if(level_work==10)
+else if(level_work==10)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=11;
-      WashingTime=4*60-(GetTimerValue(3)-(40+17+11)*60);
+      case 1:
+        level_work=12;
+	WashingTime=4*60-(GetTimerValue(3)-(40+17+11)*60);
+        break;
+      case 2:
+        level_work=-10;
+        break;
     }
   }
+    else if(level_work==-10)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-11;
+      }    
+    }
+    else if(level_work==-11)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-12;
+      }
+    }
+    else if(level_work==-12)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=12;
+	  WashingTime=4*60-(GetTimerValue(3)-(40+17+11)*60);
+          break;
+        case 2:
+          break;
+      }
+}
   else if(level_work==12)
   {
     if(DoTheWashing(WashingTime,1))
@@ -1459,11 +1799,41 @@ void main_program_3(void)
   }
   else if(level_work==14)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=15;
+      case 1:
+        level_work=15;
+        break;
+      case 2:
+        level_work=-14;
+        break;
     }
   }
+    else if(level_work==-14)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-15;
+      }    
+    }
+    else if(level_work==-15)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-16;
+      }
+    }
+    else if(level_work==-16)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=15;
+          break;
+        case 2:
+          break;
+      }
+}
   else if(level_work==15)
   {
     if(DoTheWashing(10,1))
@@ -1564,11 +1934,41 @@ void main_program_4(void)
   }
   else if(level_work==2)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=3;
+      case 1:
+        level_work=3;
+        break;
+      case 2:
+        level_work=-2;
+        break;
     }
   }
+    else if(level_work==-2)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-3;
+      }    
+    }
+    else if(level_work==-3)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-4;
+      }
+    }
+    else if(level_work==-4)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=3;
+          break;
+        case 2:
+          break;
+      }
+    }
   else if(level_work==3)
   {
     if(DoTheWashing(10,1))
@@ -1601,11 +2001,42 @@ void main_program_4(void)
   }
   else if(level_work==7)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=8;
+      case 1:
+        level_work=8;
+        break;
+      case 2:
+        level_work=-7;
+        break;
     }
   }
+    else if(level_work==-7)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-8;
+      }    
+    }
+    else if(level_work==-8)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-9;
+      }
+    }
+    else if(level_work==-9)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=8;
+          break;
+        case 2:
+          break;
+      }
+}
+
   else if(level_work==8)
   {
     if(DoTheWashing(10,1))
@@ -1642,13 +2073,44 @@ void main_program_4(void)
       level_work=12;
     }
   }
-  else if(level_work==12)
+else if(level_work==12)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=13;
+      case 1:
+        level_work=13;
+        break;
+      case 2:
+        level_work=-12;
+        break;
     }
   }
+    else if(level_work==-12)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-13;
+      }    
+    }
+    else if(level_work==-13)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-14;
+      }
+    }
+    else if(level_work==-14)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=13;
+          break;
+        case 2:
+          break;
+      }
+}
+
   else if(level_work==13)
   {
     if(DoTheWashing(10,1))
@@ -1720,10 +2182,40 @@ void main_program_5(void)
       }
     }
     else if(level_work==2)
+  {
+    switch(TakeTheWater(100,60,1,0))
     {
-      if(TakeTheWater(100,60,1))
-      {
+      case 1:
         level_work=3;
+        break;
+      case 2:
+        level_work=-2;
+        break;
+    }
+  }
+    else if(level_work==-2)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-3;
+      }    
+    }
+    else if(level_work==-3)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-4;
+      }
+    }
+    else if(level_work==-4)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=3;
+          break;
+        case 2:
+          break;
       }
     }
     else if(level_work==3)
@@ -1763,10 +2255,40 @@ void main_program_5(void)
       }
     }
     else if(level_work==7)
+  {
+    switch(TakeTheWater(100,60,1,0))
     {
-      if(TakeTheWater(100,60,1))
-      {
+      case 1:
         level_work=8;
+        break;
+      case 2:
+        level_work=-7;
+        break;
+    }
+  }
+    else if(level_work==-7)
+    {
+      if(DrainTheWater(30,4))
+      {
+        level_work=-8;
+      }    
+    }
+    else if(level_work==-8)
+    {
+      if(Wait(3*60,4))
+      {
+        level_work=-9;
+      }
+    }
+    else if(level_work==-9)
+    {
+      switch(TakeTheWater(100,60,4,1))
+      {
+        case 1:
+          level_work=8;
+          break;
+        case 2:
+          break;
       }
     }
     else if(level_work==8)
@@ -1832,12 +2354,43 @@ void main_program_6(void)
   }
   else if(level_work==2)
   {
-    if(TakeTheWater(100,60,1))
+    switch(TakeTheWater(100,60,1,0))
     {
-      level_work=3;
-      WashingTime=Pred_Time_6*60-GetTimerValue(3)-60;
+      case 1:
+        level_work=3;
+        WashingTime=Pred_Time_6*60-GetTimerValue(3)-60;
+        break;
+      case 2:
+        level_work=-2;
+        break;
     }
   }
+  else if(level_work==-2)
+  {
+    if(DrainTheWater(30,4))
+    {
+      level_work=-3;
+    }    
+  }
+  else if(level_work==-3)
+  {
+    if(Wait(3*60,4))
+    {
+      level_work=-4;
+    }
+  }
+  else if(level_work==-4)
+  {
+    switch(TakeTheWater(100,60,4,1))
+    {
+      case 1:
+        level_work=3;
+        WashingTime=Pred_Time_6*60-GetTimerValue(3)-60;
+        break;
+      case 2:
+        break;
+    }
+  }  
   else if(level_work==3)
   {
     if(DoTheWashing(WashingTime,1))
@@ -1864,7 +2417,7 @@ void main_program_6(void)
     }
   }
 }
-uint8_t TakeTheWater(int FlowMeterPulsesRequired,int TimeOut,int TimerNum)
+uint8_t TakeTheWater(int FlowMeterPulsesRequired,int TimeOut,int TimerNum,int Error_Checking)
 {
   if(get_door_status() && !get_over_flow_status())
   {
@@ -1874,8 +2427,10 @@ uint8_t TakeTheWater(int FlowMeterPulsesRequired,int TimeOut,int TimerNum)
       OpenInletValve();
       if(GetTimerValue(TimerNum)>=TimeOut)
       {
-        Error.inlet_water_e2=1;
+        if(Error_Checking)
+          Error.inlet_water_e2=1;
         ResetTimer(TimerNum);
+        return 2;
       }
       return 0;
     }
