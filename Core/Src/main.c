@@ -50,6 +50,7 @@
 #define Pred_Time_5 36
 #define Pred_Time_6 11
 #define NumOfTimers 5
+#define FlowPulsesReq 2000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -61,6 +62,7 @@
 
 /* USER CODE BEGIN PV */
 uint16_t Pred_Time[6]={Pred_Time_1,Pred_Time_2,Pred_Time_3,Pred_Time_4,Pred_Time_5,Pred_Time_6};
+uint8_t SavedInformation[20];
 uint16_t temp_arr[1];
 int flow_meter_count, door, o_f;
 uint8_t rec_data[1];
@@ -79,7 +81,7 @@ float temp;
 int door_count, o_f_count;
 struct {
   int counter_value;
-  int countrer_Enable;
+  int counter_Enable;
 } counters[NumOfTimers];
 int counter, counter_flag, counter_1,counter_flag_1,counter_2,counter_flag_2,fcn_done;
 int temp_offset;
@@ -90,8 +92,6 @@ struct serial_com_info
 	int status;
 	int value;
 }test_mode,main_mode,power_off,start_info,selecting_button,pill,Timer;
-uint8_t eeprom_data[20];
-int eeprom_flag;
 struct Error_st
 {
 	int opened_door_e1;
@@ -113,6 +113,7 @@ int buzzer_flag_count;
 int Seg_Value;
 int washing_state,dry_state,mode_done,wait_flag,wait_time;
 int debug;
+int pwr,pwr_1,pwr_2;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -135,7 +136,6 @@ int get_door_status(void);
 void convert_data(void);
 void init_config(void);
 void Calc_Temp(void);
-void init_main_test_list(int x0,int x1,int x2,int x3,int x4,int x5,int x6,int x7,int x8,int x9);
 uint8_t TakeTheWater(int FlowMeterPulsesRequired,int TimeOut,int TimerNum,int Error_Checking);
 uint8_t TakeTheDispenser(int TimeOut,int TimerNum);
 uint8_t DoTheWashing(int TimeOut,int TimerNum);
@@ -229,7 +229,7 @@ int main(void)
 			Error.opened_door_e1=0;
 			wait_flag=1;
 		}
-    if(Timer.status && start_info.status==1)
+    if(Timer.status && (start_info.status==1))
     {
       wait_flag=2;
       if(Wait(60*60,1))
@@ -251,7 +251,7 @@ int main(void)
 		{
 			if(test_mode.status)
 			{
-				if(start_info.status)
+				if(start_info.status==1)
 					if(fcn_done==0)
 						if(test_fcn(test_mode.value))
 							fcn_done=1;
@@ -281,10 +281,10 @@ int main(void)
 				{
 					reset_all();
 				}
-				else if(start_info.status==-1)
+				else if(start_info.status==2)
 				{
 					reset_all();
-					level_work=0;
+					//level_work=0;
 				}
 				if(selecting_button.status && selecting_button.grant==0)
 				{
@@ -374,39 +374,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     for(int i=0;i<NumOfTimers;i++)
     {
-      if(counters[i].countrer_Enable==1)
+      if(counters[i].counter_Enable==1)
         counters[i].counter_value++;
-      else if(counters[i].countrer_Enable==-1)
-        counters[i].countrer_Enable=0;
+      else if(counters[i].counter_Enable==-1 || counters[i].counter_Enable==255)
+        counters[i].counter_Enable=0;
 
     }
-/*    if (counter_flag == 1)
-      counter++;
-    else if (counter_flag == -1)
-		{
-      counter = 0;
-			counter_flag=0;
-		}
-    
-    if (counter_flag_1 == 1)
-      counter_1++;
-    else if (counter_flag_1 == -1)
-		{
-      counter_1 = 0;
-			counter_flag_1=0;
-		}
-    if (counter_flag_2 == 1)
-      counter_2++;
-    else if (counter_flag_2 == -1)
-		{
-      counter_2 = 0;
-			counter_flag_2=0;
-		}*/
 		if(buzzer_flag_count<2)
 			buzzer_flag_count++;
-		
-		//counter_flag_2=(counter_flag_1==1) || (counter_flag==1);
-    counters[2].countrer_Enable=counters[0].countrer_Enable || counters[1].countrer_Enable;
+    counters[2].counter_Enable=(counters[0].counter_Enable==1) || (counters[1].counter_Enable==1);
 		if(wait_flag)
 			wait_time++;
 		if(wait_time>=10 && wait_flag==1)
@@ -438,6 +414,38 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     
     tim3_flag = 1;
   }
+	if(htim == &htim4)
+	{
+		pwr_1++;
+		pwr_2+=HAL_GPIO_ReadPin(power_flag_GPIO_Port,power_flag_Pin);
+		if(pwr_1>=20)
+		{
+			pwr_1=0;
+			pwr=pwr_2;
+			pwr_2=0;
+			if(pwr>=18)
+			{
+				if(main_mode.status==1)
+				{
+					SavedInformation[0]=main_mode.status;
+					SavedInformation[1]=main_mode.value;
+					SavedInformation[2]=start_info.status;
+					SavedInformation[3]=level_work;
+					SavedInformation[4]=counters[2].counter_value;
+					SavedInformation[5]=counters[2].counter_value>>8;
+//					SavedInformation[6]=counters[0].counter_value%256;
+//					SavedInformation[7]=counters[0].counter_value/256;
+//					SavedInformation[8]=counters[1].counter_value%256;
+//					SavedInformation[9]=counters[1].counter_value/256;
+//					SavedInformation[10]=counters[3].counter_value%256;
+//					SavedInformation[11]=counters[3].counter_value/256;
+//					SavedInformation[12]=flow_meter_count%256;
+//					SavedInformation[13]=flow_meter_count/256;
+					HAL_I2C_Mem_Write(&hi2c1,eeprom_write_address,8,I2C_MEMADD_SIZE_16BIT,SavedInformation,6,HAL_MAX_DELAY);
+				}
+			}
+		}
+	}
 }
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
@@ -512,6 +520,31 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
+//	if(GPIO_Pin==power_flag_Pin)
+//	{
+//		//HAL_Delay(1);
+//		if(HAL_GPIO_ReadPin(power_flag_GPIO_Port,power_flag_Pin)==GPIO_PIN_SET)
+//		{
+//			if(main_mode.status==1)
+//			{
+//				SavedInformation[0]=main_mode.status;
+////				int i=0;
+////				SavedInformation[i++]=main_mode.status*100+main_mode.value*10+(level_work/10);
+////				SavedInformation[i++]=start_info.status*10+(level_work%10);
+////				SavedInformation[i++]=counters[0].counter_value%256;
+////				SavedInformation[i++]=counters[0].counter_value/256;
+////				SavedInformation[i++]=counters[1].counter_value%256;
+////				SavedInformation[i++]=counters[1].counter_value/256;
+////				SavedInformation[i++]=counters[2].counter_value%256;
+////				SavedInformation[i++]=counters[2].counter_value/256;
+////				SavedInformation[i++]=counters[3].counter_value%256;
+////				SavedInformation[i++]=counters[3].counter_value/256;
+////				SavedInformation[i++]=flow_meter_count%256;
+////				SavedInformation[i++]=flow_meter_count/256;
+//				HAL_I2C_Mem_Write(&hi2c1,eeprom_write_address,8,I2C_MEMADD_SIZE_16BIT,SavedInformation,1,10);
+//			}
+//		}
+//	}
   if (GPIO_Pin == door_Pin)
   {
     door_count = 0;
@@ -621,7 +654,7 @@ uint8_t test_fcn(int n)
     switch (n)
     {
     case 9:
-      return TakeTheWater(100,60,1,1);
+      return TakeTheWater(FlowPulsesReq,60,1,1);
       break;
     case 8:
       return TakeTheDispenser(3,1);
@@ -636,7 +669,7 @@ uint8_t test_fcn(int n)
       return DrainTheWater(30,1);
       break;
     case 4:
-      return TakeTheWater(100,60,1,1);
+      return TakeTheWater(FlowPulsesReq,60,1,1);
       break;
     case 3:
       return DoTheWashing(10,1);
@@ -658,11 +691,11 @@ uint8_t test_fcn(int n)
 }
 void reset_all(void)
 {
-	HAL_GPIO_WritePin(iv_GPIO_Port, iv_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(dv_GPIO_Port, dv_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(dp_GPIO_Port, dp_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(wp_GPIO_Port, wp_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(sv_GPIO_Port, sv_Pin, GPIO_PIN_RESET);
+  CloseInletValve();
+  CloseDispenserValve();
+  TurnOffTheDrainPump();
+  TurnOffTheWashingPump();
+  CloseSaltValve();
 	StopTimer(1);
   StopTimer(2);
 }
@@ -779,6 +812,7 @@ void convert_data(void)
 			reset_all();
 			reset_errors();
 			Error.opened_door_e1=0;
+      ResetTimer(3);
 		}
 	}
 	if(start_info.req)
@@ -827,22 +861,45 @@ void convert_data(void)
 }
 void init_config(void)
 {
-	HAL_ADC_Start(&hadc1);
-  HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_4);
-  HAL_TIM_Base_Start_IT(&htim3);
-  HAL_UART_Receive_IT(&huart1, rec_data, 1);
-  HAL_TIM_Base_Start_IT(&htim4);
-  HAL_TIM_Base_Start_IT(&htim1);
+	HAL_I2C_Mem_Read(&hi2c1,eeprom_read_address,8,I2C_MEMADD_SIZE_16BIT,SavedInformation,20,HAL_MAX_DELAY);
+	if(SavedInformation[0]==1)
+	{
+		main_mode.status          =  SavedInformation[0];
+		main_mode.value           =  SavedInformation[1];
+		start_info.status         =  SavedInformation[2];
+		level_work                =  SavedInformation[3];
+		counters[2].counter_value =  SavedInformation[4]+SavedInformation[5]*256;
+		counters[0].counter_value =  SavedInformation[6]+SavedInformation[7]*256;
+		counters[1].counter_value =  SavedInformation[8]+SavedInformation[9]*256;
+		counters[3].counter_value =  SavedInformation[10]+SavedInformation[11]*256;
+    flow_meter_count          =  SavedInformation[12]+SavedInformation[13]*256;
+		for(int i=0;i<20;i++)
+		{
+			SavedInformation[i]=0;
+		}
+		HAL_Delay(10);
+		HAL_I2C_Mem_Write(&hi2c1,eeprom_write_address,8,I2C_MEMADD_SIZE_16BIT,SavedInformation,20,HAL_MAX_DELAY);
+	}
+	else
+	{
+		main_mode.value=2;
+		power_off.status=1;
+		start_info.status=0;
+	}
+	power_off.grant=1;
+	start_info.grant=1;
+	selecting_button.grant=1;
+	Timer.grant=1;
+	Timer.status=0;
 	test_mode.grant=1;
 	main_mode.grant=1;
 	test_mode.value=9;
-	main_mode.value=2;
-	power_off.grant=1;
-	power_off.status=1;
-	start_info.grant=1;
-	selecting_button.grant=1;
-  Timer.grant=1;
-  Timer.status=0;
+	HAL_ADC_Start(&hadc1);
+  HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_4);
+  HAL_TIM_Base_Start_IT(&htim3);
+  HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Base_Start_IT(&htim1);
+	HAL_UART_Receive_IT(&huart1, rec_data, 1);
 }
 void Calc_Temp(void)
 {
@@ -898,9 +955,9 @@ void main_program_1(void)
       level_work=2;
     }
   }
-else if(level_work==2)
+  else if(level_work==2)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=3;
@@ -910,31 +967,31 @@ else if(level_work==2)
         break;
     }
   }
-    else if(level_work==-2)
+  else if(level_work==-2)
+  {
+    if(DrainTheWater(30,4))
     {
-      if(DrainTheWater(30,4))
-      {
-        level_work=-3;
-      }    
-    }
-    else if(level_work==-3)
+      level_work=-3;
+    }    
+  }
+  else if(level_work==-3)
+  {
+    if(Wait(3*60,4))
     {
-      if(Wait(3*60,4))
-      {
-        level_work=-4;
-      }
+      level_work=-4;
     }
-    else if(level_work==-4)
+  }
+  else if(level_work==-4)
+  {
+    switch(TakeTheWater(FlowPulsesReq,60,4,1))
     {
-      switch(TakeTheWater(100,60,4,1))
-      {
-        case 1:
-          level_work=3;
-          break;
-        case 2:
-          break;
-      }
+      case 1:
+        level_work=3;
+        break;
+      case 2:
+        break;
     }
+  }
   else if(level_work==3)
   {
     if(DoTheWashing(10,1))
@@ -945,10 +1002,16 @@ else if(level_work==2)
   }
   else if(level_work==4)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=14*60-GetTimerValue(3);
+      ResetTimer(1);
+    }
     if(BringTheWaterTemperatureToTheSpecifiedValue(40,WashingTime,1))
     {
       level_work=5;
       SetTimeValue(3,14*60);
+      WashingTime=0;
     }
   }
   else if(level_work==5)
@@ -965,9 +1028,9 @@ else if(level_work==2)
       level_work=7;
     }
   }
-else if(level_work==7)
+  else if(level_work==7)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=8;
@@ -977,32 +1040,31 @@ else if(level_work==7)
         break;
     }
   }
-    else if(level_work==-7)
+  else if(level_work==-7)
+  {
+    if(DrainTheWater(30,4))
     {
-      if(DrainTheWater(30,4))
-      {
-        level_work=-8;
-      }    
+      level_work=-8;
+    }    
+  }
+  else if(level_work==-8)
+  {
+    if(Wait(3*60,4))
+    {
+      level_work=-9;
     }
-    else if(level_work==-8)
+  }
+  else if(level_work==-9)
+  {
+    switch(TakeTheWater(FlowPulsesReq,60,4,1))
     {
-      if(Wait(3*60,4))
-      {
-        level_work=-9;
-      }
+      case 1:
+        level_work=8;
+        break;
+      case 2:
+        break;
     }
-    else if(level_work==-9)
-    {
-      switch(TakeTheWater(100,60,4,1))
-      {
-        case 1:
-          level_work=8;
-          break;
-        case 2:
-          break;
-      }
-}
-
+  }
   else if(level_work==8)
   {
     if(DoTheWashing(10,1))
@@ -1013,6 +1075,11 @@ else if(level_work==7)
   }
   else if(level_work==9)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=20*60-(GetTimerValue(3)-(5+14)*60);
+      ResetTimer(1);
+    }
     if(done_flag_1==0)
       done_flag_1=BringTheWaterTemperatureToTheSpecifiedValue(60,WashingTime,1);
     if(done_flag_2==0)
@@ -1023,6 +1090,7 @@ else if(level_work==7)
       SetTimeValue(3,(14+5+20)*60);
       done_flag_2=0;
       done_flag_1=0;
+      WashingTime=0;
     }
   }
   else if(level_work==10)
@@ -1039,9 +1107,9 @@ else if(level_work==7)
       level_work=12;
     }
   }
-else if(level_work==12)
+  else if(level_work==12)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=13;
@@ -1052,49 +1120,55 @@ else if(level_work==12)
         break;
     }
   }
-    else if(level_work==-12)
+  else if(level_work==-12)
+  {
+    if(DrainTheWater(30,4))
     {
-      if(DrainTheWater(30,4))
-      {
-        level_work=-13;
-      }    
+      level_work=-13;
+    }    
+  }
+  else if(level_work==-13)
+  {
+    if(Wait(3*60,4))
+    {
+      level_work=-14;
     }
-    else if(level_work==-13)
+  }
+  else if(level_work==-14)
+  {
+    switch(TakeTheWater(FlowPulsesReq,60,4,1))
     {
-      if(Wait(3*60,4))
-      {
-        level_work=-14;
-      }
+      case 1:
+        level_work=13;
+        WashingTime=7*60-(GetTimerValue(3)-(35+20+5+14)*60);
+        break;
+      case 2:
+        break;
     }
-    else if(level_work==-14)
-    {
-      switch(TakeTheWater(100,60,4,1))
-      {
-        case 1:
-          level_work=13;
-          WashingTime=7*60-(GetTimerValue(3)-(35+20+5+14)*60);
-          break;
-        case 2:
-          break;
-      }
-}
+  }
   else if(level_work==13)
   {
+    if(WashingTime==0)
+    {
+      ResetTimer(1);
+      WashingTime=7*60-(GetTimerValue(3)-(35+20+5+14)*60);
+    }
     if(DoTheWashing(WashingTime,1))
     {
       level_work=14;
+      WashingTime=0;
     }
   }
-   else if(level_work==14)
+  else if(level_work==14)
   {
     if(DrainTheWater(30,1))
     {
       level_work=15;
     }
   }
-else if(level_work==15)
+  else if(level_work==15)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=16;
@@ -1105,49 +1179,55 @@ else if(level_work==15)
         break;
     }
   }
-    else if(level_work==-15)
+  else if(level_work==-15)
+  {
+    if(DrainTheWater(30,4))
     {
-      if(DrainTheWater(30,4))
-      {
-        level_work=-16;
-      }    
+      level_work=-16;
+    }    
+  }
+  else if(level_work==-16)
+  {
+    if(Wait(3*60,4))
+    {
+      level_work=-17;
     }
-    else if(level_work==-16)
+  }
+  else if(level_work==-17)
+  {
+    switch(TakeTheWater(FlowPulsesReq,60,4,1))
     {
-      if(Wait(3*60,4))
-      {
-        level_work=-17;
-      }
+      case 1:
+        level_work=16;
+        WashingTime=7*60-(GetTimerValue(3)-(7+35+20+5+14)*60);
+        break;
+      case 2:
+        break;
     }
-    else if(level_work==-17)
-    {
-      switch(TakeTheWater(100,60,4,1))
-      {
-        case 1:
-          level_work=16;
-          WashingTime=7*60-(GetTimerValue(3)-(7+35+20+5+14)*60);
-          break;
-        case 2:
-          break;
-      }
-}
+  }
   else if(level_work==16)
   {
+    if(WashingTime==0)
+    {
+      ResetTimer(1);
+      WashingTime=7*60-(GetTimerValue(3)-(7+35+20+5+14)*60);
+    }
     if(DoTheWashing(WashingTime,1))
     {
       level_work=17;
+      WashingTime=0;
     }
   }
-    else if(level_work==17)
+  else if(level_work==17)
   {
     if(DrainTheWater(30,1))
     {
       level_work=18;
     }
   }
-else if(level_work==18)
+  else if(level_work==18)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=19;
@@ -1157,31 +1237,31 @@ else if(level_work==18)
         break;
     }
   }
-    else if(level_work==-18)
+  else if(level_work==-18)
+  {
+    if(DrainTheWater(30,4))
     {
-      if(DrainTheWater(30,4))
-      {
-        level_work=-19;
-      }    
+      level_work=-19;
+    }    
+  }
+  else if(level_work==-19)
+  {
+    if(Wait(3*60,4))
+    {
+      level_work=-20;
     }
-    else if(level_work==-19)
+  }
+  else if(level_work==-20)
+  {
+    switch(TakeTheWater(FlowPulsesReq,60,4,1))
     {
-      if(Wait(3*60,4))
-      {
-        level_work=-20;
-      }
+      case 1:
+        level_work=19;
+        break;
+      case 2:
+        break;
     }
-    else if(level_work==-20)
-    {
-      switch(TakeTheWater(100,60,4,1))
-      {
-        case 1:
-          level_work=19;
-          break;
-        case 2:
-          break;
-      }
-}
+  }
   else if(level_work==19)
   {
     if(DoTheWashing(10,1))
@@ -1192,10 +1272,16 @@ else if(level_work==18)
   }
   else if(level_work==20)
   {
+    if(WashingTime==0)
+    {
+      ResetTimer(1);
+      WashingTime=23*60-(GetTimerValue(3)-(7+7+35+20+5+14)*60);
+    }
     if(BringTheWaterTemperatureToTheSpecifiedValue(65,WashingTime,1))
     {
       level_work=21;
       SetTimeValue(3,(23+7+7+35+20+5+14)*60);
+      WashingTime=0;
     }
   }
   else if(level_work==21)
@@ -1321,13 +1407,13 @@ void main_program_2(void)
       level_work=2;
     }
   }
-else if(level_work==2)
+  else if(level_work==2)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=3;
-	WashingTime=26*60-GetTimerValue(3);
+	      WashingTime=26*60-GetTimerValue(3);
         break;
       case 2:
         level_work=-2;
@@ -1350,11 +1436,11 @@ else if(level_work==2)
     }
     else if(level_work==-4)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=3;
-	  WashingTime=26*60-GetTimerValue(3);
+	        WashingTime=26*60-GetTimerValue(3);
           break;
         case 2:
           break;
@@ -1362,9 +1448,15 @@ else if(level_work==2)
     }
   else if(level_work==3)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=26*60-GetTimerValue(3);
+      ResetTimer(1);
+    }
     if(DoTheWashing(WashingTime,1))
     {
       level_work=4;
+      WashingTime=0;
     }
   }
   else if(level_work==4)
@@ -1374,9 +1466,9 @@ else if(level_work==2)
       level_work=5;
     }
   }
-else if(level_work==5)
+  else if(level_work==5)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=6;
@@ -1402,7 +1494,7 @@ else if(level_work==5)
     }
     else if(level_work==-7)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=6;
@@ -1410,7 +1502,7 @@ else if(level_work==5)
         case 2:
           break;
       }
-}
+  }
   else if(level_work==6)
   {
     if(DoTheWashing(10,1))
@@ -1421,6 +1513,11 @@ else if(level_work==5)
   }
   else if(level_work==7)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=18*60-(GetTimerValue(3)-26*60);
+      ResetTimer(1);
+    }
     if(done_flag_1==0)
       done_flag_1=BringTheWaterTemperatureToTheSpecifiedValue(45,WashingTime,1);
     if(done_flag_2==0)
@@ -1431,6 +1528,7 @@ else if(level_work==5)
       SetTimeValue(3,(18+26)*60);
       done_flag_2=0;
       done_flag_1=0;
+      WashingTime=0;
     }
   }
   else if(level_work==8)
@@ -1449,9 +1547,9 @@ else if(level_work==5)
   }
 
 
-else if(level_work==10)
+  else if(level_work==10)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=11;
@@ -1477,7 +1575,7 @@ else if(level_work==10)
     }
     else if(level_work==-12)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=11;
@@ -1485,7 +1583,7 @@ else if(level_work==10)
         case 2:
           break;
       }
-}
+  }
   else if(level_work==11)
   {
     if(DoTheWashing(10,1))
@@ -1496,10 +1594,16 @@ else if(level_work==10)
   }
   else if(level_work==12)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=16*60-(GetTimerValue(3)-(60+18+26)*60);
+      ResetTimer(1);
+    }
     if(BringTheWaterTemperatureToTheSpecifiedValue(60,WashingTime,1))
     {
       level_work=13;
       SetTimeValue(3,(16+60+18+26)*60);
+      WashingTime=0;
     }
   }
   else if(level_work==13)
@@ -1620,7 +1724,7 @@ void main_program_3(void)
   }
   else if(level_work==2)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=3;
@@ -1647,7 +1751,7 @@ void main_program_3(void)
     }
     else if(level_work==-4)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=3;
@@ -1659,9 +1763,15 @@ void main_program_3(void)
     }
   else if(level_work==3)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=11*60-GetTimerValue(3);
+      ResetTimer(1);
+    }
     if(DoTheWashing(WashingTime,1))
     {
       level_work=4;
+      WashingTime=0;
     }
   }
   else if(level_work==4)
@@ -1671,9 +1781,9 @@ void main_program_3(void)
       level_work=5;
     }
   }
-else if(level_work==5)
+  else if(level_work==5)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=6;
@@ -1699,7 +1809,7 @@ else if(level_work==5)
     }
     else if(level_work==-7)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=6;
@@ -1718,6 +1828,11 @@ else if(level_work==5)
   }
   else if(level_work==7)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=17*60-(GetTimerValue(3)-11*60);
+      ResetTimer(1);
+    }
     if(done_flag_1==0)
       done_flag_1=BringTheWaterTemperatureToTheSpecifiedValue(45,WashingTime,1);
     if(done_flag_2==0)
@@ -1728,6 +1843,7 @@ else if(level_work==5)
       SetTimeValue(3,(17+11)*60);
       done_flag_2=0;
       done_flag_1=0;
+      WashingTime=0;
     }
   }
   else if(level_work==8)
@@ -1744,13 +1860,13 @@ else if(level_work==5)
       level_work=10;
     }
   }
-else if(level_work==10)
+  else if(level_work==10)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=12;
-	WashingTime=4*60-(GetTimerValue(3)-(40+17+11)*60);
+	      WashingTime=4*60-(GetTimerValue(3)-(40+17+11)*60);
         break;
       case 2:
         level_work=-10;
@@ -1773,21 +1889,27 @@ else if(level_work==10)
     }
     else if(level_work==-12)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=12;
-	  WashingTime=4*60-(GetTimerValue(3)-(40+17+11)*60);
+	        WashingTime=4*60-(GetTimerValue(3)-(40+17+11)*60);
           break;
         case 2:
           break;
       }
-}
+  }
   else if(level_work==12)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=4*60-(GetTimerValue(3)-(40+17+11)*60);
+      ResetTimer(1);
+    }
     if(DoTheWashing(WashingTime,1))
     {
       level_work=13;
+      WashingTime=0;
     }
   }
   else if(level_work==13)
@@ -1799,7 +1921,7 @@ else if(level_work==10)
   }
   else if(level_work==14)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=15;
@@ -1825,7 +1947,7 @@ else if(level_work==10)
     }
     else if(level_work==-16)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=15;
@@ -1833,7 +1955,7 @@ else if(level_work==10)
         case 2:
           break;
       }
-}
+  }
   else if(level_work==15)
   {
     if(DoTheWashing(10,1))
@@ -1844,11 +1966,17 @@ else if(level_work==10)
   }
   else if(level_work==16)
   {
-      if(BringTheWaterTemperatureToTheSpecifiedValue(55,WashingTime,1))
-      {
-        level_work=17;
-        SetTimeValue(3,(16+4+40+17+11)*60);
-      }
+    if(WashingTime==0)
+    {
+      WashingTime=16*60-(GetTimerValue(3)-(4+40+17+11)*60);
+      ResetTimer(1);
+    }
+    if(BringTheWaterTemperatureToTheSpecifiedValue(55,WashingTime,1))
+    {
+      level_work=17;
+      SetTimeValue(3,(16+4+40+17+11)*60);
+      WashingTime=0;
+    }
   }
   else if(level_work==17)
   {
@@ -1915,7 +2043,7 @@ else if(level_work==10)
 
 }
 void main_program_4(void)
-{
+{ 
   if(level_work==0)
   {
     washing_state=1;
@@ -1934,7 +2062,7 @@ void main_program_4(void)
   }
   else if(level_work==2)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=3;
@@ -1960,7 +2088,7 @@ void main_program_4(void)
     }
     else if(level_work==-4)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=3;
@@ -1979,10 +2107,16 @@ void main_program_4(void)
   }
   else if(level_work==4)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=18*60-GetTimerValue(3);
+      ResetTimer(1);
+    }
     if(BringTheWaterTemperatureToTheSpecifiedValue(50,WashingTime,1))
     {
       level_work=5;
       SetTimeValue(3,18*60);
+      WashingTime=0;
     }
   }
   else if(level_work==5)
@@ -2001,7 +2135,7 @@ void main_program_4(void)
   }
   else if(level_work==7)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=8;
@@ -2027,7 +2161,7 @@ void main_program_4(void)
     }
     else if(level_work==-9)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=8;
@@ -2035,7 +2169,7 @@ void main_program_4(void)
         case 2:
           break;
       }
-}
+  }
 
   else if(level_work==8)
   {
@@ -2047,6 +2181,11 @@ void main_program_4(void)
   }
   else if(level_work==9)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=10*60-(GetTimerValue(3)-23*60);
+      ResetTimer(1);
+    }
     if(done_flag_1==0)
       done_flag_1=BringTheWaterTemperatureToTheSpecifiedValue(40,WashingTime,1);
     if(done_flag_2==0)
@@ -2057,6 +2196,7 @@ void main_program_4(void)
       SetTimeValue(3,(18+5+10)*60);
       done_flag_2=0;
       done_flag_1=0;
+      WashingTime=0;
     }
   }
   else if(level_work==10)
@@ -2073,9 +2213,9 @@ void main_program_4(void)
       level_work=12;
     }
   }
-else if(level_work==12)
+  else if(level_work==12)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=13;
@@ -2101,7 +2241,7 @@ else if(level_work==12)
     }
     else if(level_work==-14)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=13;
@@ -2109,7 +2249,7 @@ else if(level_work==12)
         case 2:
           break;
       }
-}
+  }
 
   else if(level_work==13)
   {
@@ -2121,10 +2261,16 @@ else if(level_work==12)
   }
   else if(level_work==14)
   {
+    if(WashingTime==0)
+    {
+      WashingTime=15*60-(GetTimerValue(3)-38*60);
+      ResetTimer(1);
+    }
     if(BringTheWaterTemperatureToTheSpecifiedValue(60,WashingTime,1))
     {
       level_work=15;
       SetTimeValue(3,(15+5+10+5+18)*60);
+      WashingTime=0;
     }
   }
   else if(level_work==15)
@@ -2162,7 +2308,7 @@ else if(level_work==12)
     }
   }
   
-}
+  }
 void main_program_5(void)
 {
   if(level_work==0)
@@ -2183,7 +2329,7 @@ void main_program_5(void)
     }
     else if(level_work==2)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=3;
@@ -2209,7 +2355,7 @@ void main_program_5(void)
     }
     else if(level_work==-4)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=3;
@@ -2228,6 +2374,11 @@ void main_program_5(void)
     }
     else if(level_work==4)
     {
+      if(WashingTime==0)
+      {
+        WashingTime=14*60-GetTimerValue(3);
+        ResetTimer(1);
+      }
       if(done_flag_1==0)
         done_flag_1=BringTheWaterTemperatureToTheSpecifiedValue(40,WashingTime,1);
       if(done_flag_2==0)
@@ -2238,6 +2389,7 @@ void main_program_5(void)
         SetTimeValue(3,14*60);
         done_flag_2=0;
         done_flag_1=0;
+        WashingTime=0;
       }
     }
     else if(level_work==5)
@@ -2256,7 +2408,7 @@ void main_program_5(void)
     }
     else if(level_work==7)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=8;
@@ -2282,7 +2434,7 @@ void main_program_5(void)
     }
     else if(level_work==-9)
     {
-      switch(TakeTheWater(100,60,4,1))
+      switch(TakeTheWater(FlowPulsesReq,60,4,1))
       {
         case 1:
           level_work=8;
@@ -2301,11 +2453,16 @@ void main_program_5(void)
     }
     else if(level_work==9)
     {
-        if(BringTheWaterTemperatureToTheSpecifiedValue(45,WashingTime,1))
-        {
-          level_work=10;
-          SetTimeValue(3,(14+8+11)*60);
-        }
+      if(WashingTime==0)
+      {
+        WashingTime=11*60-(GetTimerValue(3)-22*60);
+        ResetTimer(1);
+      }
+      if(BringTheWaterTemperatureToTheSpecifiedValue(45,WashingTime,1))
+      {
+        level_work=10;
+        SetTimeValue(3,(14+8+11)*60);
+      }
     }
     else if(level_work==10)
     {
@@ -2354,7 +2511,7 @@ void main_program_6(void)
   }
   else if(level_work==2)
   {
-    switch(TakeTheWater(100,60,1,0))
+    switch(TakeTheWater(FlowPulsesReq,60,1,0))
     {
       case 1:
         level_work=3;
@@ -2381,7 +2538,7 @@ void main_program_6(void)
   }
   else if(level_work==-4)
   {
-    switch(TakeTheWater(100,60,4,1))
+    switch(TakeTheWater(FlowPulsesReq,60,4,1))
     {
       case 1:
         level_work=3;
@@ -2393,9 +2550,15 @@ void main_program_6(void)
   }  
   else if(level_work==3)
   {
+		if(WashingTime==0)
+    {
+			WashingTime=Pred_Time_6*60-GetTimerValue(3)-60;
+      ResetTimer(1);
+    }
     if(DoTheWashing(WashingTime,1))
     {
       level_work=4;
+			WashingTime=0;
     }
   }
   else if(level_work==4)
@@ -2429,6 +2592,7 @@ uint8_t TakeTheWater(int FlowMeterPulsesRequired,int TimeOut,int TimerNum,int Er
       {
         if(Error_Checking)
           Error.inlet_water_e2=1;
+				CloseInletValve();reset_all();				
         ResetTimer(TimerNum);
         return 2;
       }
@@ -2437,7 +2601,7 @@ uint8_t TakeTheWater(int FlowMeterPulsesRequired,int TimeOut,int TimerNum,int Er
     else if((flow_meter_count>=FlowMeterPulsesRequired) && get_water_level()==1)
     {
       ResetTimer(TimerNum);
-      CloseInletValve();
+      CloseInletValve();reset_all();
       return 1;
     }
     return 0;
@@ -2462,7 +2626,7 @@ uint8_t TakeTheDispenser(int TimeOut,int TimerNum)
     else
     {
       ResetTimer(TimerNum);
-      CloseDispenserValve();
+      CloseDispenserValve();reset_all();
       return 1;
     }
   }
@@ -2485,7 +2649,7 @@ uint8_t DoTheWashing(int TimeOut,int TimerNum)
       if(GetTimerValue(TimerNum)>=TimeOut)
       {
         ResetTimer(TimerNum);
-        TurnOffTheWashingPump();
+        TurnOffTheWashingPump();reset_all();
         return 1;
       }
     }
@@ -2513,7 +2677,7 @@ uint8_t BringTheWaterTemperatureToTheSpecifiedValue(int TempSetPoint,int TimeOut
       {
         ResetTimer(TimerNum);
         TurnOffTheWashingPump();
-        TurnOffHeater();
+        TurnOffHeater();reset_all();
         return 1;
       }
       else if(GetTimerValue(TimerNum)>=TimeOut)
@@ -2547,7 +2711,7 @@ uint8_t DrainTheWater(int TimeOut,int TimerNum)
     {
       if(!get_water_level())
       {
-        TurnOffTheDrainPump();
+        TurnOffTheDrainPump();reset_all();
         flow_meter_count=0;
 				ResetTimer(TimerNum);
         return 1;
@@ -2575,7 +2739,7 @@ uint8_t AddSaltWater(int TimeOut,int TimerNum)
     else
     {
       ResetTimer(TimerNum);
-      CloseSaltValve();
+      CloseSaltValve();reset_all();
 			return 1;
     }
   }
@@ -2598,6 +2762,7 @@ uint8_t GenerateBuzzerSound(int NumOfSounds,int TimerNum)
   {
     ResetTimer(TimerNum);
     TurnOffBuzzer();
+    reset_all();
     return 1;
   }
   return 0;
@@ -2612,7 +2777,7 @@ uint8_t Wait(int TimeOut,int TimerNum)
     }
     else if(GetTimerValue(TimerNum)>=TimeOut)
     {
-      ResetTimer(TimerNum);
+      ResetTimer(TimerNum);reset_all();
 			return 1;
     }
   }
@@ -2622,67 +2787,27 @@ uint8_t Wait(int TimeOut,int TimerNum)
 }
 void StartTimer(int TimerNum)
 {
-  if(counters[TimerNum-1].countrer_Enable==0)
-    counters[TimerNum-1].countrer_Enable=1;
- /* if(TimerNum==1 && counter_flag!=-1)
-    counter_flag=1;
-  else if(TimerNum==2 && counter_flag_1!=-1)
-    counter_flag_1=1;
-	else if(TimerNum==3 && counter_flag_2!=-1)
-		counter_flag_2=1;*/
+  if(counters[TimerNum-1].counter_Enable==0)
+    counters[TimerNum-1].counter_Enable=1;
 }
 void StopTimer(int TimerNum)
 {
-  if(counters[TimerNum-1].countrer_Enable==1)
-    counters[TimerNum-1].countrer_Enable=0;
-  /*if(TimerNum==1 && counter_flag!=-1)
-    counter_flag=0;
-  else if(TimerNum==2 && counter_flag_1!=-1)
-    counter_flag_1=0;
-	 else if(TimerNum==3 && counter_flag_1!=-1)
-    counter_flag_2=0;*/
+  if(counters[TimerNum-1].counter_Enable==1)
+    counters[TimerNum-1].counter_Enable=0;
 }
 void ResetTimer(int TimerNum)
 {
-  counters[TimerNum-1].countrer_Enable=-1;
+  counters[TimerNum-1].counter_Enable=-1;
   counters[TimerNum-1].counter_value=0;
-  /*if(TimerNum==1){
-    counter_flag=-1;
-    counter=0;
-  }
-  else if(TimerNum==2)
-  {
-    counter_flag_1=-1;
-    counter_1=0;
-  }
-	else if(TimerNum==3)
-  {
-		counter_flag_2=-1;
-    counter_2=0;
-  }*/
 }
 int GetTimerValue(int TimerNum)
 {
   return  counters[TimerNum-1].counter_value/2;
-  /*if(TimerNum==1)
-    return counter/2;
-  else if(TimerNum==2)
-    return counter_1/2;
-  else if(TimerNum==3)
-    return counter_2/2;
-  return 0;*/
   
 }
 int GetTimerCount(int TimerNum)
 {
   return  counters[TimerNum-1].counter_value;
-  /*if(TimerNum==1)
-    return counter;
-  else if(TimerNum==2)
-    return counter_1;
-  else if(TimerNum==3)
-    return counter_2;
-  return 0;*/
 }
 float GetWaterTemp(void)
 {
@@ -2691,54 +2816,66 @@ float GetWaterTemp(void)
 void OpenInletValve(void)
 {
   HAL_GPIO_WritePin(iv_GPIO_Port,iv_Pin,GPIO_PIN_SET);
+  
 }
 void CloseInletValve(void)
 {
   HAL_GPIO_WritePin(iv_GPIO_Port,iv_Pin,GPIO_PIN_RESET);
+  
 }
 void OpenDispenserValve(void)
 {
   HAL_GPIO_WritePin(dv_GPIO_Port,dv_Pin,GPIO_PIN_SET);
+  
 }
 void CloseDispenserValve(void)
 {
   HAL_GPIO_WritePin(dv_GPIO_Port,dv_Pin,GPIO_PIN_RESET);
+  
 }
 void OpenSaltValve(void)
 {
   HAL_GPIO_WritePin(sv_GPIO_Port,sv_Pin,GPIO_PIN_SET);
+  
 }
 void CloseSaltValve(void)
 {
   HAL_GPIO_WritePin(sv_GPIO_Port,sv_Pin,GPIO_PIN_RESET);
+  
 }
 void TurnOnTheWashingPump(void)
 {
   HAL_GPIO_WritePin(wp_GPIO_Port,wp_Pin,GPIO_PIN_SET);
+  
 }
 void TurnOffTheWashingPump(void)
 {
   HAL_GPIO_WritePin(wp_GPIO_Port,wp_Pin,GPIO_PIN_RESET);
+  
 }
 void TurnOnHeater(void)
 {
   HAL_GPIO_WritePin(heat_relay_GPIO_Port,heat_relay_Pin,GPIO_PIN_SET);
+  
 }
 void TurnOffHeater(void)
 {
   HAL_GPIO_WritePin(heat_relay_GPIO_Port,heat_relay_Pin,GPIO_PIN_RESET);
+  
 }
 void TurnOnTheDrainPump(void)
 {
   HAL_GPIO_WritePin(dp_GPIO_Port,dp_Pin,GPIO_PIN_SET);
+  
 }
 void TurnOffTheDrainPump(void)
 {
   HAL_GPIO_WritePin(dp_GPIO_Port,dp_Pin,GPIO_PIN_RESET);
+  
 }
 void TurnOnBuzzer(void)
 {
-  HAL_GPIO_WritePin(buzzer_GPIO_Port,buzzer_Pin,GPIO_PIN_SET);
+  HAL_GPIO_WritePin(buzzer_GPIO_Port,buzzer_Pin,GPIO_PIN_SET && debug);
 }
 void TurnOffBuzzer(void)
 {
@@ -2754,18 +2891,6 @@ void beep(void)
 void SetTimeValue(int TimerNum,int SetTimeValue)
 {
   counters[TimerNum-1].counter_value=SetTimeValue*2;
-   /* switch(TimerNum)
-    {
-      case 1:
-        counter=SetTimeValue*2;
-        break;
-      case 2:
-        counter_1=SetTimeValue*2;
-        break;
-      case 3:
-        counter_2=SetTimeValue*2;
-        break;
-    }*/
 }
 /* USER CODE END 4 */
 

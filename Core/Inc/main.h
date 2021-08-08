@@ -86,6 +86,7 @@ void Error_Handler(void);
 #define heat_relay_GPIO_Port GPIOB
 #define power_flag_Pin GPIO_PIN_12
 #define power_flag_GPIO_Port GPIOB
+#define power_flag_EXTI_IRQn EXTI15_10_IRQn
 #define heart_Pin GPIO_PIN_13
 #define heart_GPIO_Port GPIOB
 #define buzzer_Pin GPIO_PIN_14
