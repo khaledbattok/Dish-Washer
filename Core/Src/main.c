@@ -434,7 +434,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					SavedInformation[4]=counters[2].counter_value;
 					SavedInformation[5]=counters[2].counter_value>>8;
 					SavedInformation[6]=counters[0].counter_value;
-					SavedInformation[7]=counters[0].counter_value>>256;
+					SavedInformation[7]=counters[0].counter_value>>8;
 					SavedInformation[8]=flow_meter_count;
 					SavedInformation[9]=flow_meter_count>>8;
 					HAL_I2C_Mem_Write(&hi2c1,eeprom_write_address,8,I2C_MEMADD_SIZE_16BIT,SavedInformation,10,HAL_MAX_DELAY);
@@ -2841,7 +2841,7 @@ void TurnOffTheDrainPump(void)
 }
 void TurnOnBuzzer(void)
 {
-  HAL_GPIO_WritePin(buzzer_GPIO_Port,buzzer_Pin,GPIO_PIN_SET);
+  HAL_GPIO_WritePin(buzzer_GPIO_Port,buzzer_Pin,GPIO_PIN_SET && 0);
 }
 void TurnOffBuzzer(void)
 {

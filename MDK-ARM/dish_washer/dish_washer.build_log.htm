@@ -28,8 +28,6 @@ Project File Date:  08/03/2021
 *** Using Compiler 'V5.06 update 4 (build 422)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
 Build target 'dish_washer'
 compiling main.c...
-../Core/Src/main.c(437): warning:  #63-D: shift count is too large
-  					SavedInformation[7]=counters[0].counter_value>>256;
 ../Core/Src/main.c(629): warning:  #111-D: statement is unreachable
         break;
 ../Core/Src/main.c(632): warning:  #111-D: statement is unreachable
@@ -56,9 +54,13 @@ compiling main.c...
   }
 ../Core/Src/main.c(692): warning:  #550-D: variable "ans"  was set but never used
   	int ans=0;
+../Core/Src/main.c(2844): warning:  #188-D: enumerated type mixed with another type
+    HAL_GPIO_WritePin(
+uzzer_GPIO_Port,
+uzzer_Pin,GPIO_PIN_SET && 0);
 ../Core/Src/main.c: 14 warnings, 0 errors
 linking...
-Program Size: Code=21460 RO-data=292 RW-data=180 ZI-data=1836  
+Program Size: Code=21464 RO-data=292 RW-data=180 ZI-data=1836  
 FromELF: creating hex file...
 "dish_washer\dish_washer.axf" - 0 Error(s), 14 Warning(s).
 
