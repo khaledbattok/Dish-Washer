@@ -91,7 +91,7 @@ struct serial_com_info
 	int grant;
 	int status;
 	int value;
-}test_mode,main_mode,power_off,start_info,selecting_button,pill,Timer;
+}test_mode,main_mode,power_off,start_info,selecting_button,pill,Timer,WhaterHardness;
 struct Error_st
 {
 	int opened_door_e1;
@@ -288,6 +288,8 @@ int main(void)
 				}
 				if(selecting_button.status && selecting_button.grant==0)
 				{
+					Timer.status=0;
+					Timer.value=0;
 					main_mode.value=selecting_button.value;
 					selecting_button.status=0;
 					level_work=0;
@@ -437,7 +439,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					SavedInformation[7]=counters[0].counter_value>>8;
 					SavedInformation[8]=flow_meter_count;
 					SavedInformation[9]=flow_meter_count>>8;
-					HAL_I2C_Mem_Write(&hi2c1,eeprom_write_address,8,I2C_MEMADD_SIZE_16BIT,SavedInformation,10,HAL_MAX_DELAY);
+					SavedInformation[10]=WhaterHardness.status;
+					HAL_I2C_Mem_Write(&hi2c1,eeprom_write_address,8,I2C_MEMADD_SIZE_16BIT,SavedInformation,11,HAL_MAX_DELAY);
 				}
 			}
 		}
@@ -568,6 +571,10 @@ void send_to_display(void)
   Data_Sending[Count_Send++] = Timer.grant;
   Data_Sending[Count_Send++] = Timer.status;
   Data_Sending[Count_Send++] = Timer.value;
+  Data_Sending[Count_Send++] = WhaterHardness.grant;
+  Data_Sending[Count_Send++] = WhaterHardness.status;
+  Data_Sending[Count_Send++] = temp;
+	
   sendProtocol(&huart1, 0, Data_Sending, Count_Send);
   Count_Send = 0;
   test_mode.grant=0;
@@ -576,6 +583,7 @@ void send_to_display(void)
 	start_info.grant=0;
 	selecting_button.grant=0;
   Timer.grant=0;
+  WhaterHardness.grant=0;
 }
 void protocolParser(void)
 {
@@ -590,6 +598,8 @@ void protocolParser(void)
 	selecting_button.value=inputSerial[index++];
 	pill.req=inputSerial[index++];
   Timer.req=inputSerial[index++];
+  WhaterHardness.req=inputSerial[index++];
+  WhaterHardness.value=inputSerial[index++];
 }
 float adc_sort(uint16_t *adc_arr, int size)
 {
@@ -829,6 +839,19 @@ void convert_data(void)
     Timer.grant=1;
     Timer.req=0;
   }
+  if(WhaterHardness.req)
+  {
+    if(buzzer_flag_count==2)
+		{
+			buzzer_flag=7;
+			buzzer_flag_count=0;
+      WhaterHardness.status=WhaterHardness.value;
+			SavedInformation[10]=WhaterHardness.status;
+			HAL_I2C_Mem_Write(&hi2c1,eeprom_write_address,8,I2C_MEMADD_SIZE_16BIT,SavedInformation,11,HAL_MAX_DELAY);
+    }
+    WhaterHardness.grant=1;
+    WhaterHardness.req=0;
+  }
 }
 void init_config(void)
 {
@@ -855,6 +878,10 @@ void init_config(void)
 		power_off.status=1;
 		start_info.status=0;
 	}
+	if(SavedInformation[10]>=1 && SavedInformation[10]<=8)
+		WhaterHardness.status=SavedInformation[10];
+	else
+		WhaterHardness.status=5;
 	power_off.grant=1;
 	start_info.grant=1;
 	selecting_button.grant=1;
@@ -869,6 +896,7 @@ void init_config(void)
   HAL_TIM_Base_Start_IT(&htim4);
   HAL_TIM_Base_Start_IT(&htim1);
 	HAL_UART_Receive_IT(&huart1, rec_data, 1);
+	beep();
 }
 void Calc_Temp(void)
 {
@@ -2841,7 +2869,7 @@ void TurnOffTheDrainPump(void)
 }
 void TurnOnBuzzer(void)
 {
-  HAL_GPIO_WritePin(buzzer_GPIO_Port,buzzer_Pin,GPIO_PIN_SET && 0);
+  HAL_GPIO_WritePin(buzzer_GPIO_Port,buzzer_Pin,GPIO_PIN_SET);
 }
 void TurnOffBuzzer(void)
 {
